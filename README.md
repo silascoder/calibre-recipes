@@ -1,5 +1,5 @@
 # calibre-recipes
-Recipes for Calibre ebook management software [link](https://calibre-ebook.com/)
+Recipes for [Calibre](https://calibre-ebook.com/) ebook management software 
 
 Recipes:
-- Wallabag.recipe supports Wallabag web article saver [host](https://www.wallabag.it/en) [Github](https://github.com/wallabag/wallabag)
+- Wallabag.recipe supports [Wallabag](https://www.wallabag.it/en) web article saver: [repo](https://github.com/wallabag/wallabag)
