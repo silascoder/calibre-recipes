@@ -18,6 +18,7 @@ from calibre.constants import config_dir
 from calibre.web.feeds.news import BasicNewsRecipe
 
 
+import datetime
 import errno
 import json
 import mechanize
@@ -37,6 +38,7 @@ __copyright__ = '2023, Silas Coder'
 # CONFIGURATION
 CLIENT_ID = ""
 CLIENT_SECRET = ""
+NEEDS_SUBSCRIPTION = True
 USERNAME = ""
 PASSWORD = ""
 
@@ -46,6 +48,9 @@ class Wallabag(BasicNewsRecipe):
     title = 'Wallabag'
     __author__ = 'Silas Coder'
     description = 'Articles from your Wallabag instance'
+    needs_subscription = NEEDS_SUBSCRIPTION
+    
+    temp_dir = None
     
     token = None
     
@@ -72,32 +77,41 @@ class Wallabag(BasicNewsRecipe):
             raise Exception("Failed to get info")
             
         ## Create directory
-        temp_dir = PurePath(config_dir,"temp")
-        Path(temp_dir).mkdir(exist_ok=True)
-        print("d: {}".format(temp_dir))
+        self.temp_dir = tempfile.TemporaryDirectory()
+        print("d: {}".format(self.temp_dir.name))
             
         ### Handle articles
         entries = response["_embedded"]["items"]
         articles_list = []
         
         for n, art in enumerate(entries):
-            filename = PurePath(temp_dir, "{}.html".format(n))
-            print("f: {}".format(filename))
+
+            with tempfile.NamedTemporaryFile(dir=self.temp_dir.name, delete=False) as f:
+                print("f: {}".format(f))
+                f.write("<h1 id=\"title\" class=\"title\">{0}</h1>".format(art["title"]).encode("utf-8"))
+                print("wrote title")
+                
+                authors = "Unknown" if art["published_by"] is None else ", ".join(art["published_by"])
+                f.write("<h3 id=\"author\" class=\"author\">By: {}</h3>".format(authors).encode("utf-8"))
+                print("wrote authors")
+                
+                
+                time = "Unknown" if art["published_at"] is None else datetime.datetime.strptime(art["published_at"], '%Y-%m-%dT%H:%M:%S%z').astimezone().strftime('%d/%m/%Y %H:%M:%S%z')
+                f.write("<h3 id=\"author\" class=\"author\">Published: {}</h3>".format(time).encode("utf-8"))
+                print("wrote time")
             
-            with open(filename, "w") as f:
-                f.write("<h1 id=\"title\" class=\"title\">{0}</h1>".format(art["title"]))
-                f.write(art["content"])
-            article = {
+                f.write(art["content"].encode("utf-8"))
+                print("wrote content")
+                article = {
                         'title'       : art["title"],
-                        'url'         : "file:///{}".format(filename),
-                        'date'        : None, #art["published_at"],
-                        'description' : None, #idk
+                        'url'         : "file:///{}".format(f.name),
+                        'date'        : time,
+                        'description' : "By: {}".format(authors),
                         'content'     : None
                     }
-            # print(article)
+            print("article saved")
             articles_list.append(article)
-        # print(articles_list)
-        # raise Exception()
+
         return [("Wallabag", articles_list)]
         
         
@@ -113,8 +127,8 @@ class Wallabag(BasicNewsRecipe):
                 '}}').format(
                     CLIENT_ID,
                     CLIENT_SECRET,
-                    USERNAME,
-                    PASSWORD
+                    self.username if self.needs_subscription else USERNAME,
+                    self.password if self.needs_subscription else PASSWORD
                 ),
                 headers = {
                     'Content-Type': 'application/json; charset=UTF8',
@@ -135,12 +149,6 @@ class Wallabag(BasicNewsRecipe):
         self.ensure_authorization()
         print("browser initialized")
         return self.browser
-
-    def cleanup(self):
-        temp_dir = PurePath(config_dir,"temp")
-        for file in Path(temp_dir).glob('*'):
-            Path(file).unlink(missing_ok=True)
-        Path(temp_dir).rmdir()
 
 #    def postprocess_book(self, oeb, opts, log):
 #        pass
